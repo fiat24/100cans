@@ -1,16 +1,5 @@
-import axios from 'axios';
-
 const SILICONFLOW_ENDPOINT = process.env.SILICONFLOW_API_ENDPOINT || 'https://api.siliconflow.cn';
 const SILICONFLOW_MODEL = process.env.SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-R1';
-
-// Use provided keys if env vars are not set
-const API_KEYS = [
-    process.env.SILICONFLOW_API_KEY,
-    process.env.SILICONFLOW_API_KEY_1,
-    process.env.SILICONFLOW_API_KEY_2,
-    'sk-ijxhhwxszeqdgizdrfyfkkbykarmrogjjtumcoebheoscebs',
-    'sk-jesvzeontggxiwscmweountqykfegudwdwasyzbubtntaujp'
-].filter(Boolean);
 
 export interface SummaryResult {
     summary: string;
@@ -18,11 +7,9 @@ export interface SummaryResult {
     sentiment: "positive" | "negative" | "neutral";
 }
 
-let keyIndex = 0;
-function getApiKey() {
-    if (API_KEYS.length === 0) throw new Error('No API keys available');
-    const key = API_KEYS[keyIndex % API_KEYS.length];
-    keyIndex++;
+function getApiKey(): string {
+    const key = process.env.SILICONFLOW_API_KEY;
+    if (!key) throw new Error('SILICONFLOW_API_KEY environment variable is not set');
     return key;
 }
 
@@ -32,16 +19,15 @@ export async function summarizeBlogPost(
     url: string
 ): Promise<SummaryResult | null> {
     try {
-        // If content is empty or too short, backup to title
         const blogContent = (content && content.length > 50) ? content : `Title: ${title}`;
 
         const prompt = `You are a helpful assistant that summarizes blog posts in Chinese.
-    
+
 Blog Title: ${title}
 Blog URL: ${url}
 
 Blog Content:
-${blogContent.substring(0, 8000)}
+${blogContent.substring(0, 6000)}
 
 Please provide:
 1. A translation of the blog title into Chinese.
@@ -52,111 +38,101 @@ Please provide:
 Format your response as valid JSON with keys: "translatedTitle", "summary", "keyPoints" (array), "sentiment".
 The "summary" field must start with the translated title in brackets, like: "【中文标题】总结内容..."`;
 
-        // Retry logic
         let attempts = 0;
-        while (attempts < 3) {
+        while (attempts < 2) {
             try {
                 const apiKey = getApiKey();
-                const response = await axios.post(
+                const response = await fetch(
                     `${SILICONFLOW_ENDPOINT}/v1/chat/completions`,
                     {
-                        model: SILICONFLOW_MODEL,
-                        messages: [
-                            { role: "system", content: "You are a helpful assistant that summarizes blog posts in Chinese. Always respond with valid JSON." },
-                            { role: "user", content: prompt }
-                        ],
-                        temperature: 0.3,
-                        max_tokens: 2000,
-                        response_format: { type: "json_object" }
-                    },
-                    {
+                        method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${apiKey}`,
                             'Content-Type': 'application/json',
                         },
-                        timeout: 90000
+                        body: JSON.stringify({
+                            model: SILICONFLOW_MODEL,
+                            messages: [
+                                { role: "system", content: "You are a helpful assistant that summarizes blog posts in Chinese. Always respond with valid JSON." },
+                                { role: "user", content: prompt }
+                            ],
+                            temperature: 0.3,
+                            max_tokens: 1500,
+                        }),
+                        signal: AbortSignal.timeout(25000),
                     }
                 );
 
-                if (response.status === 200 && response.data?.choices?.[0]?.message?.content) {
-                    let contentStr: string = response.data.choices[0].message.content;
+                if (response.ok) {
+                    const data = await response.json();
+                    let contentStr: string = data?.choices?.[0]?.message?.content || '';
 
-                    // DeepSeek-R1 might include reasoning in <think> tags, let's strip them if present
-                    if (contentStr.includes("</think>")) {
-                        contentStr = contentStr.split("</think>").pop() || contentStr;
+                    if (!contentStr) { attempts++; continue; }
+
+                    // Strip DeepSeek-R1 <think> reasoning tags
+                    if (contentStr.includes('</think>')) {
+                        contentStr = contentStr.split('</think>').pop() || contentStr;
                     }
 
-                    // Clean up potential markdown code blocks
-                    contentStr = contentStr.replace(/```json\n?/, "").replace(/\n?```/, "").trim();
+                    // Strip markdown code fences
+                    contentStr = contentStr.replace(/```json\n?/, '').replace(/\n?```/, '').trim();
 
                     try {
                         const json = JSON.parse(contentStr);
                         const translatedTitle = json.translatedTitle || title;
-                        const summaryText = json.summary || "";
-
-                        // Ensure summary starts with translated title if not already
-                        let finalSummary = summaryText;
-                        if (translatedTitle && !summaryText.includes(translatedTitle)) {
-                            finalSummary = `【${translatedTitle}】${summaryText}`;
+                        let finalSummary = json.summary || '';
+                        if (translatedTitle && !finalSummary.includes(translatedTitle)) {
+                            finalSummary = `【${translatedTitle}】${finalSummary}`;
                         }
-
                         return {
                             summary: finalSummary,
                             keyPoints: Array.isArray(json.keyPoints) ? json.keyPoints : [],
-                            sentiment: (["positive", "negative", "neutral"].includes(json.sentiment) ? json.sentiment : "neutral") as any,
+                            sentiment: (['positive', 'negative', 'neutral'].includes(json.sentiment)
+                                ? json.sentiment : 'neutral') as any,
                         };
-                    } catch (e) {
-                        console.error("JSON Parse error", e);
-                        // Retry if JSON is invalid
+                    } catch {
+                        console.error('[AI] JSON parse error, retrying...');
                     }
                 }
             } catch (e: any) {
-                console.error(`Attempt ${attempts + 1} failed:`, e.message);
-                // Wait before retry
-                await new Promise(r => setTimeout(r, 2000));
+                console.error(`[AI] Attempt ${attempts + 1} failed:`, e.message);
+                await new Promise(r => setTimeout(r, 1000));
             }
             attempts++;
         }
 
         return null;
     } catch (error) {
-        console.error("[Summarizer] Error summarizing post:", error);
+        console.error('[AI] Error summarizing post:', error);
         return null;
     }
 }
 
 export async function extractTextFromURL(url: string): Promise<string | null> {
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-
         const response = await fetch(url, {
             headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             },
-            signal: controller.signal,
+            signal: AbortSignal.timeout(10000),
         });
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            return null;
-        }
+        if (!response.ok) return null;
 
         const html = await response.text();
-        return extractTextFromHTML(html).substring(0, 10000);
+        return extractTextFromHTML(html).substring(0, 8000);
     } catch (error) {
-        console.error(`[Summarizer] Error extracting text from ${url}:`, error);
+        console.error(`[AI] Error extracting text from ${url}:`, error);
         return null;
     }
 }
 
 function extractTextFromHTML(html: string): string {
     let t = html;
-    t = t.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
-    t = t.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
-    t = t.replace(/<[^>]+>/g, " ");
-    t = t.replace(/&nbsp;/g, " ");
-    t = t.replace(/\s+/g, " ");
+    t = t.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    t = t.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    t = t.replace(/<[^>]+>/g, ' ');
+    t = t.replace(/&nbsp;/g, ' ');
+    t = t.replace(/\s+/g, ' ');
     return t.trim();
 }
