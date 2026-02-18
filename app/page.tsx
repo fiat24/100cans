@@ -3,6 +3,7 @@ import { blogPosts, summaries, blogs } from "@/lib/schema";
 import { desc, eq } from "drizzle-orm";
 import { AcademiaCard } from "@/components/ui/AcademiaCard";
 import { SectionDivider } from "@/components/ui/SectionDivider";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { format, isToday, isYesterday } from "date-fns";
 
 // Always render at request time — DB is not available at build time
@@ -54,8 +55,13 @@ export default async function Home() {
 
     return (
         <div className="min-h-screen pb-24">
+            {/* Top nav */}
+            <nav className="flex justify-end px-6 pt-6">
+                <ThemeToggle />
+            </nav>
+
             {/* Hero Header */}
-            <header className="py-24 text-center px-4 relative overflow-hidden">
+            <header className="py-16 text-center px-4 relative overflow-hidden">
                 <div className="max-w-4xl mx-auto relative z-10">
                     <div className="inline-block mb-6">
                         <span className="font-display text-sm tracking-[0.3em] text-accent uppercase border-b border-accent/30 pb-2">

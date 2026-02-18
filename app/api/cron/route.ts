@@ -2,10 +2,10 @@ import { db } from "@/lib/db";
 import { fetchBlogPosts } from "@/lib/fetcher";
 import { summarizeBlogPost, extractTextFromURL } from "@/lib/ai";
 import { blogs, blogPosts, summaries } from "@/lib/schema";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
-export const maxDuration = 60; // Set max duration for Vercel Function (seconds)
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
@@ -15,69 +15,65 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        console.log("[Cron] Starting daily job...");
+        const mode = new URL(request.url).searchParams.get('mode') || 'fetch';
 
-        // 1. Fetch Top Blogs
-        const allBlogs = await db.select().from(blogs).limit(50); // Process top 50 blogs
-        let newPostsCount = 0;
+        if (mode === 'fetch') {
+            // Step 1: Fetch new posts — only 10 blogs per run to avoid timeout
+            const allBlogs = await db.select().from(blogs).limit(10);
+            let newPostsCount = 0;
 
-        for (const blog of allBlogs) {
-            try {
-                const posts = await fetchBlogPosts(blog.domain, 5); // Fetch latest 5 posts per blog
-                for (const post of posts) {
-                    const existing = await db.query.blogPosts.findFirst({
-                        where: eq(blogPosts.url, post.url)
-                    });
-
-                    if (!existing) {
-                        await db.insert(blogPosts).values({
-                            ...post,
-                            blogId: blog.id
+            for (const blog of allBlogs) {
+                try {
+                    const posts = await fetchBlogPosts(blog.domain, 3); // 3 posts per blog max
+                    for (const post of posts) {
+                        const existing = await db.query.blogPosts.findFirst({
+                            where: eq(blogPosts.url, post.url)
                         });
-                        newPostsCount++;
+                        if (!existing) {
+                            await db.insert(blogPosts).values({ ...post, blogId: blog.id });
+                            newPostsCount++;
+                        }
                     }
+                } catch (e) {
+                    console.error(`Failed to fetch ${blog.domain}`, e);
                 }
-            } catch (e) {
-                console.error(`Failed to fetch ${blog.domain}`, e);
             }
-        }
 
-        // 2. Summarize Unsummarized Posts
-        const unsummarized = await db.select().from(blogPosts)
-            .where(eq(blogPosts.isSummarized, 0))
-            .limit(20); // Process 20 at a time to avoid timeout
+            return NextResponse.json({ success: true, mode: 'fetch', newPosts: newPostsCount });
 
-        let summarizedCount = 0;
+        } else if (mode === 'summarize') {
+            // Step 2: Summarize — only 5 at a time to avoid timeout
+            const unsummarized = await db.select().from(blogPosts)
+                .where(eq(blogPosts.isSummarized, 0))
+                .limit(5);
 
-        for (const post of unsummarized) {
-            try {
-                const text = await extractTextFromURL(post.url);
-                if (text) {
-                    const result = await summarizeBlogPost(post.title, text, post.url);
+            let summarizedCount = 0;
+
+            for (const post of unsummarized) {
+                try {
+                    const text = await extractTextFromURL(post.url);
+                    const content = text || post.title;
+                    const result = await summarizeBlogPost(post.title, content, post.url);
                     if (result) {
                         await db.insert(summaries).values({
                             postId: post.id,
                             summaryText: result.summary,
-                            modelUsed: "deepseek-ai/DeepSeek-R1"
+                            modelUsed: process.env.SILICONFLOW_MODEL || "deepseek-ai/DeepSeek-R1"
                         });
-
                         await db.update(blogPosts)
                             .set({ isSummarized: 1 })
                             .where(eq(blogPosts.id, post.id));
-
                         summarizedCount++;
                     }
+                } catch (e) {
+                    console.error(`Failed to summarize post ${post.id}`, e);
                 }
-            } catch (e) {
-                console.error(`Failed to summarize ${post.id}`, e);
             }
+
+            return NextResponse.json({ success: true, mode: 'summarize', summarized: summarizedCount });
         }
 
-        return NextResponse.json({
-            success: true,
-            newPosts: newPostsCount,
-            summarized: summarizedCount
-        });
+        return NextResponse.json({ error: 'Unknown mode. Use ?mode=fetch or ?mode=summarize' }, { status: 400 });
 
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

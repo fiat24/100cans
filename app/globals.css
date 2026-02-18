@@ -4,7 +4,11 @@
     --font-display: "Cinzel", serif;
     --font-heading: "Cormorant Garamond", serif;
     --font-body: "Crimson Pro", serif;
+}
 
+/* ─── Dark Theme (default) ─── */
+:root {
+    color-scheme: dark;
     --color-background: #1C1714;
     --color-background-alt: #251E19;
     --color-foreground: #E8DFD4;
@@ -13,13 +17,19 @@
     --color-accent: #C9A962;
     --color-accent-secondary: #8B2635;
     --color-border: #4A3F35;
-
-    --radius-arch: 40% 40% 0 0 / 20% 20% 0 0;
 }
 
-/* Custom CSS for Academia Design System */
-:root {
-    color-scheme: dark;
+/* ─── Light Theme ─── */
+:root[data-theme="light"] {
+    color-scheme: light;
+    --color-background: #F5EFE6;
+    --color-background-alt: #EDE4D8;
+    --color-foreground: #2C1F14;
+    --color-muted: #D9CDBF;
+    --color-muted-foreground: #6B5744;
+    --color-accent: #9A7230;
+    --color-accent-secondary: #8B2635;
+    --color-border: #C4B49E;
 }
 
 body {
@@ -28,10 +38,10 @@ body {
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
-    position: relative;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Texture Overlays */
+/* Paper texture overlay — lighter in light mode */
 body::before {
     content: "";
     position: fixed;
@@ -41,24 +51,12 @@ body::before {
     height: 100%;
     pointer-events: none;
     z-index: 50;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
     opacity: 0.4;
     mix-blend-mode: overlay;
 }
 
-body::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 49;
-    background: radial-gradient(circle at center, transparent 0%, rgba(28, 23, 20, 0.4) 100%);
-}
-
-/* Typography Utilities */
+/* Typography */
 h1,
 h2,
 h3,
@@ -77,24 +75,6 @@ h6 {
     line-height: 0.8;
     margin-right: 0.75rem;
     color: var(--color-accent);
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* Arch-Top Image Style */
-.arch-top {
-    border-radius: var(--radius-arch);
-    overflow: hidden;
-    position: relative;
-}
-
-.arch-top img {
-    filter: sepia(0.6) contrast(0.95) brightness(0.9);
-    transition: all 0.7s ease-out;
-}
-
-.arch-top:hover img {
-    filter: sepia(0) contrast(1) brightness(1);
-    transform: scale(1.05);
 }
 
 /* Ornate Divider */
@@ -103,7 +83,6 @@ h6 {
     background: linear-gradient(90deg, transparent 0%, var(--color-border) 20%, var(--color-accent) 50%, var(--color-border) 80%, transparent 100%);
     position: relative;
     margin: 3rem 0;
-    width: 100%;
 }
 
 .ornate-divider::after {
@@ -116,6 +95,7 @@ h6 {
     background-color: var(--color-background);
     padding: 0 1rem;
     font-size: 1.25rem;
+    transition: background-color 0.3s ease;
 }
 
 /* Scrollbar */
@@ -136,14 +116,13 @@ h6 {
     background: var(--color-border);
 }
 
-/* Brass Button Utility */
+/* Brass Button */
 .brass-btn {
     background: linear-gradient(180deg, #D4B872 0%, #C9A962 50%, #B8953F 100%);
     color: #1C1714;
     font-family: var(--font-display);
     text-transform: uppercase;
     letter-spacing: 0.15em;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease-out;
 }
@@ -153,7 +132,22 @@ h6 {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 4px 12px rgba(201, 169, 98, 0.3);
 }
 
-.brass-btn:active {
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-    transform: translateY(1px);
+/* Theme toggle button */
+.theme-toggle {
+    background: var(--color-muted);
+    border: 1px solid var(--color-border);
+    color: var(--color-foreground);
+    border-radius: 9999px;
+    padding: 0.4rem 0.9rem;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+    background: var(--color-border);
+    color: var(--color-accent);
 }
