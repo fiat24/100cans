@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { fetchBlogPosts } from "@/lib/fetcher";
 import { summarizeBlogPost, extractTextFromURL } from "@/lib/ai";
 import { blogs, blogPosts, summaries } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 60;
@@ -10,44 +10,59 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     try {
-        const authHeader = request.headers.get('authorization');
-        if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         const mode = new URL(request.url).searchParams.get('mode') || 'fetch';
 
         if (mode === 'fetch') {
-            // Step 1: Fetch new posts — only 10 blogs per run to avoid timeout
+            // Fetch 10 blogs per run
             const allBlogs = await db.select().from(blogs).limit(10);
+
+            if (allBlogs.length === 0) {
+                return NextResponse.json({ success: false, error: 'No blogs in database. Call /api/init first.' });
+            }
+
             let newPostsCount = 0;
+            const errors: string[] = [];
 
             for (const blog of allBlogs) {
                 try {
-                    const posts = await fetchBlogPosts(blog.domain, 3); // 3 posts per blog max
+                    const posts = await fetchBlogPosts(blog.domain, 3);
                     for (const post of posts) {
-                        const existing = await db.query.blogPosts.findFirst({
-                            where: eq(blogPosts.url, post.url)
-                        });
-                        if (!existing) {
+                        // Use standard select instead of relational query
+                        const existing = await db.select({ id: blogPosts.id })
+                            .from(blogPosts)
+                            .where(eq(blogPosts.url, post.url))
+                            .limit(1);
+
+                        if (existing.length === 0) {
                             await db.insert(blogPosts).values({ ...post, blogId: blog.id });
                             newPostsCount++;
                         }
                     }
-                } catch (e) {
-                    console.error(`Failed to fetch ${blog.domain}`, e);
+                } catch (e: any) {
+                    errors.push(`${blog.domain}: ${e.message}`);
                 }
             }
 
-            return NextResponse.json({ success: true, mode: 'fetch', newPosts: newPostsCount });
+            return NextResponse.json({
+                success: true,
+                mode: 'fetch',
+                newPosts: newPostsCount,
+                blogsProcessed: allBlogs.length,
+                errors: errors.length > 0 ? errors : undefined,
+            });
 
         } else if (mode === 'summarize') {
-            // Step 2: Summarize — only 5 at a time to avoid timeout
+            // Summarize 3 posts at a time
             const unsummarized = await db.select().from(blogPosts)
                 .where(eq(blogPosts.isSummarized, 0))
-                .limit(5);
+                .limit(3);
+
+            if (unsummarized.length === 0) {
+                return NextResponse.json({ success: true, mode: 'summarize', summarized: 0, message: 'No unsummarized posts found.' });
+            }
 
             let summarizedCount = 0;
+            const errors: string[] = [];
 
             for (const post of unsummarized) {
                 try {
@@ -65,15 +80,21 @@ export async function GET(request: Request) {
                             .where(eq(blogPosts.id, post.id));
                         summarizedCount++;
                     }
-                } catch (e) {
-                    console.error(`Failed to summarize post ${post.id}`, e);
+                } catch (e: any) {
+                    errors.push(`post ${post.id}: ${e.message}`);
                 }
             }
 
-            return NextResponse.json({ success: true, mode: 'summarize', summarized: summarizedCount });
+            return NextResponse.json({
+                success: true,
+                mode: 'summarize',
+                summarized: summarizedCount,
+                attempted: unsummarized.length,
+                errors: errors.length > 0 ? errors : undefined,
+            });
         }
 
-        return NextResponse.json({ error: 'Unknown mode. Use ?mode=fetch or ?mode=summarize' }, { status: 400 });
+        return NextResponse.json({ error: 'Use ?mode=fetch or ?mode=summarize' }, { status: 400 });
 
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });

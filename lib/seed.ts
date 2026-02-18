@@ -110,7 +110,7 @@ const TOP_100_BLOGS = [
 export async function seedTop100Blogs() {
     console.log("[SeedBlogs] Starting to seed top 100 blogs...");
     try {
-        const result = await db.insert(blogs).values(
+        await db.insert(blogs).values(
             TOP_100_BLOGS.map((blog) => ({
                 domain: blog.domain,
                 author: blog.author,
@@ -118,16 +118,11 @@ export async function seedTop100Blogs() {
                 topics: blog.topics,
                 totalScore: blog.totalScore,
                 storiesCount: blog.storiesCount,
-                rank: 0, // Should be calculated or provided
+                rank: 0,
             }))
-        ).onConflictDoUpdate({
-            target: blogs.domain,
-            set: {
-                author: undefined, // Don't overwrite existing
-                updatedAt: new Date(),
-            }
-        });
+        ).onConflictDoNothing();
         console.log(`[SeedBlogs] Successfully seeded blogs`);
+        return TOP_100_BLOGS.length;
     } catch (error) {
         console.error("[SeedBlogs] Error seeding blogs:", error);
         throw error;
