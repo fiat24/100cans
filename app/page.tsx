@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { blogPosts, summaries, blogs } from "@/lib/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { AcademiaCard } from "@/components/ui/AcademiaCard";
 import { SectionDivider } from "@/components/ui/SectionDivider";
 import { format, isToday, isYesterday } from "date-fns";
@@ -9,21 +9,26 @@ import { format, isToday, isYesterday } from "date-fns";
 export const dynamic = 'force-dynamic';
 
 async function getFeed() {
-    const posts = await db.select({
-        id: blogPosts.id,
-        title: blogPosts.title,
-        url: blogPosts.url,
-        publishedDate: blogPosts.publishedDate,
-        blogDomain: blogs.domain,
-        summary: summaries.summaryText,
-    })
-        .from(blogPosts)
-        .leftJoin(summaries, eq(blogPosts.id, summaries.postId))
-        .innerJoin(blogs, eq(blogPosts.blogId, blogs.id))
-        .orderBy(desc(blogPosts.publishedDate))
-        .limit(100);
+    try {
+        const posts = await db.select({
+            id: blogPosts.id,
+            title: blogPosts.title,
+            url: blogPosts.url,
+            publishedDate: blogPosts.publishedDate,
+            blogDomain: blogs.domain,
+            summary: summaries.summaryText,
+        })
+            .from(blogPosts)
+            .leftJoin(summaries, eq(blogPosts.id, summaries.postId))
+            .innerJoin(blogs, eq(blogPosts.blogId, blogs.id))
+            .orderBy(desc(blogPosts.publishedDate))
+            .limit(100);
 
-    return posts;
+        return posts;
+    } catch (error) {
+        console.error('[Page] Failed to fetch feed:', error);
+        return [];
+    }
 }
 
 function groupPostsByDate(posts: any[]) {
@@ -62,42 +67,40 @@ export default async function Home() {
                         <span className="italic text-foreground/80">Chronicle</span>
                     </h1>
                     <p className="font-body text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                        A daily compendium of engineering wisdom, curated from the world's most distinguished technical journals.
+                        A daily compendium of engineering wisdom, curated from the world&apos;s most distinguished technical journals.
                     </p>
                 </div>
-
-                {/* Decorative background elements could go here */}
             </header>
 
             <div className="max-w-3xl mx-auto px-4 sm:px-6">
-                {Object.entries(groupedPosts).map(([date, posts]) => (
-                    <section key={date} className="mb-24">
-                        <SectionDivider label={date} />
-                        <div className="space-y-12">
-                            {posts.map((post) => (
-                                <AcademiaCard
-                                    key={post.id}
-                                    title={post.summary ? post.summary.split('】')[0].replace('【', '') : post.title} // Use translated title from summary if available
-                                    originalTitle={post.title}
-                                    summary={post.summary}
-                                    source={post.blogDomain}
-                                    url={post.url}
-                                    date={post.publishedDate}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                ))}
-
-                {posts.length === 0 && (
+                {posts.length === 0 ? (
                     <div className="text-center py-24 border border-dashed border-[#4A3F35] rounded">
                         <p className="font-display text-muted-foreground uppercase tracking-widest">
                             The library is currently empty.
                         </p>
                         <p className="font-body mt-4 text-foreground/60">
-                            Run the initialization process to populate the shelves.
+                            Visit <code className="text-accent">/api/init</code> to initialize the database, then <code className="text-accent">/api/cron</code> to fetch articles.
                         </p>
                     </div>
+                ) : (
+                    Object.entries(groupedPosts).map(([date, datePosts]) => (
+                        <section key={date} className="mb-24">
+                            <SectionDivider label={date} />
+                            <div className="space-y-12">
+                                {datePosts.map((post) => (
+                                    <AcademiaCard
+                                        key={post.id}
+                                        title={post.summary ? post.summary.split('】')[0].replace('【', '') : post.title}
+                                        originalTitle={post.title}
+                                        summary={post.summary}
+                                        source={post.blogDomain}
+                                        url={post.url}
+                                        date={post.publishedDate}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+                    ))
                 )}
             </div>
         </div>
