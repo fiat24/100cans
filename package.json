@@ -9,7 +9,11 @@
     "start": "next start",
     "lint": "next lint",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "populate": "node scripts/populate.mjs",
+    "populate:fetch": "node scripts/populate.mjs --fetch-only",
+    "populate:summarize": "node scripts/populate.mjs --summarize-only",
+    "populate:watch": "node scripts/populate.mjs --interval 30"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
