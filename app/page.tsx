@@ -5,8 +5,8 @@ import { AcademiaCard } from "@/components/ui/AcademiaCard";
 import { SectionDivider } from "@/components/ui/SectionDivider";
 import { format, isToday, isYesterday } from "date-fns";
 
-// Revalidate every hour
-export const revalidate = 3600;
+// Always render at request time — DB is not available at build time
+export const dynamic = 'force-dynamic';
 
 async function getFeed() {
     const posts = await db.select({

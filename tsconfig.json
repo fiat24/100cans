@@ -38,6 +38,8 @@
   "exclude": [
     "node_modules",
     "_client_backup",
-    "_server_backup"
+    "_server_backup",
+    "drizzle.config.ts",
+    "vitest.config.ts"
   ]
 }
