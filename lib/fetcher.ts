@@ -241,7 +241,6 @@ export function decodeHTMLEntities(text: string): string {
         "&nbsp;": " ",
         "&mdash;": "—",
         "&ndash;": "–",
-        "&ndash;": "–"
     };
 
     return text.replace(/&(?:[a-z]+|#\d+);/gi, (match) => entities[match] || match);
