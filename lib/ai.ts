@@ -1,5 +1,6 @@
 const SILICONFLOW_ENDPOINT = process.env.SILICONFLOW_API_ENDPOINT || 'https://api.siliconflow.cn';
-const SILICONFLOW_MODEL = process.env.SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-R1';
+// DeepSeek-V3 is much faster than R1 for summarization (R1 does slow chain-of-thought)
+const SILICONFLOW_MODEL = process.env.SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-V3';
 
 export interface SummaryResult {
     summary: string;
@@ -21,25 +22,16 @@ export async function summarizeBlogPost(
     try {
         const blogContent = (content && content.length > 50) ? content : `Title: ${title}`;
 
-        const prompt = `You are a helpful assistant that summarizes blog posts in Chinese.
+        // Shorter prompt = fewer tokens = faster response
+        const prompt = `Summarize this blog post in Chinese. Respond ONLY with valid JSON, no extra text.
 
-Blog Title: ${title}
-Blog URL: ${url}
+Title: ${title}
+Content: ${blogContent.substring(0, 3000)}
 
-Blog Content:
-${blogContent.substring(0, 6000)}
-
-Please provide:
-1. A translation of the blog title into Chinese.
-2. A concise 2-3 sentence summary of the main points in Chinese.
-3. 3-5 key takeaways as bullet points in Chinese.
-4. Overall sentiment (positive, negative, or neutral).
-
-Format your response as valid JSON with keys: "translatedTitle", "summary", "keyPoints" (array), "sentiment".
-The "summary" field must start with the translated title in brackets, like: "【中文标题】总结内容..."`;
+JSON format: {"translatedTitle": "中文标题", "summary": "【中文标题】2-3句中文总结", "keyPoints": ["要点1", "要点2", "要点3"], "sentiment": "positive|negative|neutral"}`;
 
         let attempts = 0;
-        while (attempts < 2) {
+        while (attempts < 1) {
             try {
                 const apiKey = getApiKey();
                 const response = await fetch(
@@ -53,13 +45,12 @@ The "summary" field must start with the translated title in brackets, like: "【
                         body: JSON.stringify({
                             model: SILICONFLOW_MODEL,
                             messages: [
-                                { role: "system", content: "You are a helpful assistant that summarizes blog posts in Chinese. Always respond with valid JSON." },
                                 { role: "user", content: prompt }
                             ],
-                            temperature: 0.3,
-                            max_tokens: 1500,
+                            temperature: 0.1,
+                            max_tokens: 600,
                         }),
-                        signal: AbortSignal.timeout(25000),
+                        signal: AbortSignal.timeout(7000),
                     }
                 );
 

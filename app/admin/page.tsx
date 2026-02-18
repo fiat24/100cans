@@ -64,6 +64,10 @@ export default function AdminPage() {
 
     async function callApi(path: string) {
         const res = await fetch(path);
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            return { error: `HTTP ${res.status} - server timeout or error (not JSON)` };
+        }
         return res.json();
     }
 
