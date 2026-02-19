@@ -23,14 +23,14 @@ export function AcademiaCard({
     return (
         <article
             className={cn(
-                "group relative bg-[#251E19] border border-[#4A3F35] rounded p-8 transition-all duration-300",
-                "hover:border-[#C9A962]/50 hover:shadow-lg",
+                "group relative bg-background-alt border border-border rounded p-8 transition-all duration-300",
+                "hover:border-accent/50 hover:shadow-lg",
                 className
             )}
         >
             {/* Corner Flourishes */}
-            <div className="absolute top-0 left-0 w-6 h-6 border-t border-l border-[#C9A962] opacity-30 group-hover:opacity-100 transition-opacity" />
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-b border-r border-[#C9A962] opacity-30 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute top-0 left-0 w-6 h-6 border-t border-l border-accent opacity-30 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute bottom-0 right-0 w-6 h-6 border-b border-r border-accent opacity-30 group-hover:opacity-100 transition-opacity" />
 
             {/* Header */}
             <header className="mb-4">
@@ -66,7 +66,7 @@ export function AcademiaCard({
             </div>
 
             {/* Footer / Action */}
-            <div className="mt-8 pt-6 border-t border-[#4A3F35]/50 flex justify-end">
+            <div className="mt-8 pt-6 border-t border-border/50 flex justify-end">
                 <a
                     href={url}
                     target="_blank"

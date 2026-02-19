@@ -80,7 +80,7 @@ export async function GET(request: Request) {
                 await db.insert(summaries).values({
                     postId: post.id,
                     summaryText: result.summary,
-                    modelUsed: process.env.SILICONFLOW_MODEL || "deepseek-ai/DeepSeek-R1"
+                    modelUsed: process.env.SILICONFLOW_MODEL || "deepseek-ai/DeepSeek-V3"
                 });
                 await db.update(blogPosts)
                     .set({ isSummarized: 1 })

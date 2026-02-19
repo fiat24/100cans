@@ -31,7 +31,7 @@ Content: ${blogContent.substring(0, 3000)}
 JSON format: {"translatedTitle": "中文标题", "summary": "【中文标题】2-3句中文总结", "keyPoints": ["要点1", "要点2", "要点3"], "sentiment": "positive|negative|neutral"}`;
 
         let attempts = 0;
-        while (attempts < 1) {
+        while (attempts < 3) {
             try {
                 const apiKey = getApiKey();
                 const response = await fetch(

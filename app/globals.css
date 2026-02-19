@@ -4,6 +4,16 @@
     --font-display: "Cinzel", serif;
     --font-heading: "Cormorant Garamond", serif;
     --font-body: "Crimson Pro", serif;
+
+    /* Default (dark) color tokens — referenced by Tailwind utilities */
+    --color-background: #1C1714;
+    --color-background-alt: #251E19;
+    --color-foreground: #E8DFD4;
+    --color-muted: #3D332B;
+    --color-muted-foreground: #9C8B7A;
+    --color-accent: #C9A962;
+    --color-accent-secondary: #8B2635;
+    --color-border: #4A3F35;
 }
 
 /* ─── Dark Theme (default) ─── */

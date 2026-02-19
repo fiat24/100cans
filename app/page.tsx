@@ -80,7 +80,7 @@ export default async function Home() {
 
             <div className="max-w-3xl mx-auto px-4 sm:px-6">
                 {posts.length === 0 ? (
-                    <div className="text-center py-24 border border-dashed border-[#4A3F35] rounded">
+                    <div className="text-center py-24 border border-dashed border-border rounded">
                         <p className="font-display text-muted-foreground uppercase tracking-widest">
                             The library is currently empty.
                         </p>
